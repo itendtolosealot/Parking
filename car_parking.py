@@ -6,18 +6,18 @@ import csv
 import sys
 import time
 feature_size = 35
-congestion_levels = 2.0
+congestion_levels = 8.0
 pred_samples = 300
-init_learning_rate = 1.0
-epochs = 25
+init_learning_rate = 10.0
+epochs = 5000
 test_percentage = 0.19
 labels = []
 features = []
-layer_size = 16
-max_neurons = 2048
+layer_size = 8
+max_neurons = 192
 
 neurons_in_layer = np.zeros(layer_size)
-file_to_read = "/home/ashvin/smart_parking/filtered.csv"
+file_to_read = "/home/ashvin/smart_parking/no_agg.csv"
 
 
 if(test_percentage > 0.2):
@@ -58,22 +58,21 @@ X_train, X_test, Y_train, Y_test = sk.train_test_split(features,labels,test_size
 
 model = tf.keras.models.Sequential()
 constraint = tf.keras.constraints.UnitNorm(axis=0)
-weight_initializer=tf.keras.initializers.RandomNormal(mean=1.00, stddev=0.05,seed=1)
-adam = tf.keras.optimizers.Adadelta(lr=init_learning_rate, decay=0.05)
+weight_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.05,seed=45)
+adam = tf.keras.optimizers.Adadelta(lr=init_learning_rate, decay=0.01)
+regularize = tf.keras.regularizers.l2(0.1)
 
 
 for i in range(0,layer_size):
     if(i==0):
-        model.add(tf.keras.layers.Dense(neurons_in_layer[i], input_shape = (feature_size,),kernel_initializer=weight_initializer, kernel_constraint=constraint))
+        model.add(tf.keras.layers.Dense(neurons_in_layer[i], input_shape = (feature_size,),kernel_initializer=weight_initializer, kernel_regularizer=regularize, bias_regularizer=regularize))
     else:
         model.add(tf.keras.layers.Dense(neurons_in_layer[i],kernel_constraint=constraint, kernel_initializer=weight_initializer))
-    model.add(tf.keras.layers.Activation('softmax'))
+    model.add(tf.keras.layers.Activation('tanh'))
+    model.add(tf.keras.layers.Dropout(0.05))
 
 model.add(tf.keras.layers.Dense(int(congestion_levels)))
 model.add(tf.keras.layers.Activation('softmax'))
-
-
-
 
 model.compile(optimizer=adam,
         loss='categorical_crossentropy',
@@ -108,7 +107,7 @@ for i in range(0,layer_size):
     if(i==0):
         gFlops = gFlops + 2*feature_size*max_neurons
     else:
-        gFlops = gFlops + 2*max_neurons*max_neurons
+        gFlops = gFlops + 2*neurons_in_layer[i]*neurons_in_layer[i-1]
 
 gFlops = gFlops*(1-2*test_percentage)*max_rows*1.0*epochs/((end-start)*1e9)
 
